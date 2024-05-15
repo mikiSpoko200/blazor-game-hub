@@ -1,0 +1,19 @@
+@inject NavigationManager NavigationManager;
+@inject AppState AppState;
+
+@if(AppState.JWT is null)
+{
+    <p>You are not logged in.</p>
+    <button @onclick="NavigateToLogin">Login</button>
+}
+else
+{
+    <p>Hello, @(AppState.User!.UserName)</p>
+}
+
+@code {
+    private void NavigateToLogin()
+    {
+        NavigationManager.NavigateTo("login");
+    }
+}

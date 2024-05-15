@@ -1,0 +1,48 @@
+@page "/statistics"
+@using GameHubShared.Models;
+@inject HttpClient Http;
+@inject AppState AppState;
+@inject NavigationManager NavigationManager;
+@inject IConfiguration Configuration;
+
+@if (AppState.JWT is null) NavigationManager.NavigateTo("/login");
+
+<h3>Statistics</h3>
+
+@if (statistics == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Game</th>
+                <th>Won</th>
+                <th>Opponent</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var statistic in statistics)
+            {
+                <tr>
+                    <td>@statistic.Date.ToShortDateString()</td>
+                    <td>@statistic.Game</td>
+                    <td>@(statistic.Won ? "Yes" : "No")</td>
+                    <td>@statistic.Opponent</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<StatisticModel>? statistics;
+
+    protected override async Task OnInitializedAsync()
+    {
+        statistics = await Http.GetFromJsonAsync<List<StatisticModel>>(Configuration["ApiUrl"] + "/statistics");
+    }
+}

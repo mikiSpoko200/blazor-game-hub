@@ -1,0 +1,31 @@
+﻿@using Microsoft.AspNetCore.SignalR;
+@using GameHubShared.Models;
+
+<div class="tile" @onclick="HandleClick">
+	@{ 
+		if (Lobby.CurrentGame.Board[Index] == Mark.Cross) {
+			<img src="../TicTacToe/Cross.png" alt="Cross" />
+		} else if (Lobby.CurrentGame.Board[Index] == Mark.Circle) {
+			<img src="../TicTacToe/Circle.png" alt="Circle" />
+		}
+	}
+</div>
+
+@code {
+	[Parameter]
+	public int Index { get; set; }
+
+	[Parameter]
+	public InGameLobbyModel Lobby { get; set; }
+	
+	[Parameter]
+	public EventCallback OnClick { get; set; }
+
+	public async Task HandleClick()
+	{
+		await OnClick.InvokeAsync();
+	}
+	protected override void OnParametersSet() {
+		StateHasChanged();
+	}
+}

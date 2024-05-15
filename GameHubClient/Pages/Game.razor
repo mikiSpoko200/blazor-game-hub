@@ -1,0 +1,114 @@
+@page "/game/{LobbyId:guid}"
+@inject AppState AppState;
+@inject NavigationManager NavigationManager;
+@inject IConfiguration Configuration;
+@using Microsoft.AspNetCore.SignalR.Client;
+@using GameHubShared.Models;
+
+<div class="container mt-5">
+    <h1 class="text-center">Game Screen</h1>
+    <p class="text-center">Welcome to the game lobby with ID: @LobbyId</p>
+
+    @if (AppState.JWT is null) NavigationManager.NavigateTo("/login");
+
+    @if (Lobby is WaitingLobbyModel) {
+        var playersNeeded = Lobby.MaxPlayers - Lobby.NCurrentPlayers;
+        <h3 class="text-center">Waiting for @playersNeeded player</h3>
+    } else if (Lobby is InGameLobbyModel) {
+        @if (((InGameLobbyModel)Lobby).CurrentGame.Status == Status.InProgress) {
+            <h3 class="text-center">Playing the game</h3>
+
+            <div class="row justify-content-center">
+                <div class="col-md-4">
+                    <p>Player 1: @(Lobby.Players[0].UserName)</p>
+                    <p>Player 2: @(Lobby.Players[1].UserName)</p>
+                    <p>Current player: @(Lobby.Players[((InGameLobbyModel)Lobby).CurrentGame.CurrentPlayerIndex].UserName)</p>
+                </div>
+            </div>
+        } else if (((InGameLobbyModel)Lobby).CurrentGame.Status == Status.Over) {
+            <p class="text-center">Game over! Winner: @(Lobby.Players[((InGameLobbyModel)Lobby).CurrentGame.CurrentPlayerIndex].UserName)</p>
+
+            <div class="text-center">
+                <button class="btn btn-primary mr-2" @onclick="PlayAgain">Play Again</button>
+                <button class="btn btn-secondary" @onclick="GoToMainMenu">Back to Main Menu</button>
+            </div>
+        } else if (((InGameLobbyModel)Lobby).CurrentGame.Status == Status.Interrupted) {
+            <p class="text-center">Game interrupted!</p>
+            <div class="text-center">
+                <button class="btn btn-secondary" @onclick="GoToMainMenu">Back to Main Menu</button>
+            </div>
+        }
+        <div class="game-board">
+            @for (int i = 0; i < 9; i++) {
+                var tile = ((InGameLobbyModel)Lobby).CurrentGame.Board[i];
+                int tileindex = i;
+                var callback = async () => await hubConnection.InvokeAsync("Place", Lobby.Id, tileindex);
+                <Tile Index="tileindex" Lobby="(InGameLobbyModel)Lobby" OnClick="callback" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private async Task GoToMainMenu()
+    {
+        await hubConnection!.StopAsync();
+        NavigationManager.NavigateTo("/");
+    }
+}
+
+@code {
+    [Parameter]
+    public Guid LobbyId { get; set; }
+
+    private LobbyModel Lobby;
+
+    private HubConnection? hubConnection;
+
+    private void UpdateWaitingLobbyState(WaitingLobbyModel lobby) {
+        Lobby = lobby;
+        Console.WriteLine("Updated waiting lobby state");
+        StateHasChanged();
+    }
+    private void UpdateInGameLobbyState(InGameLobbyModel lobby) {
+        Lobby = lobby;
+        Console.WriteLine("Updated in game lobby state");
+        Console.WriteLine($"  Game Status: {lobby.CurrentGame.Status}");
+        StateHasChanged();
+    }
+
+    private async Task PlayAgain() {
+        await hubConnection!.InvokeAsync("PlayAgain", LobbyId);
+    }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        hubConnection = new Microsoft.AspNetCore.SignalR.Client.HubConnectionBuilder()
+            .WithUrl(Configuration["HubUrl"], options => 
+                options.Headers["Authorization"] = $"Bearer {AppState.JWT}"
+            )
+            .Build();
+
+        hubConnection.On("UpdateWaitingLobbyState", (WaitingLobbyModel lobby) => UpdateWaitingLobbyState(lobby));
+        hubConnection.On("UpdateInGameLobbyState", (InGameLobbyModel lobby) => UpdateInGameLobbyState(lobby));
+
+        hubConnection.Closed += async (error) => {
+            NavigationManager.NavigateTo("/");
+        };
+
+        await hubConnection.StartAsync();
+
+        if (hubConnection.State == HubConnectionState.Connected)
+        {
+            await hubConnection.InvokeAsync("JoinLobby", LobbyId);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

@@ -1,0 +1,85 @@
+@page "/lobbies"
+@using GameHubShared.Models;
+@using Microsoft.AspNetCore.SignalR.Client;
+@inject HttpClient Http;
+@inject AppState AppState;
+@inject NavigationManager NavigationManager;
+@inject IConfiguration Configuration;
+
+<style>
+    .table-bordered {
+        border: 1px solid black;
+    }
+
+    .table-bordered th, .table-bordered td {
+        border: 1px solid black;
+    }
+</style>
+
+@if (lobbies == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+<table class="table table-striped table-bordered">
+    <thead class="thead-dark">
+        <tr>
+            <th>Game Name</th>
+            <th>Description</th>
+            <th>Max Players</th>
+            <th>Current Players</th>
+            <th>Players</th>
+            <th>Action</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var lobby in lobbies)
+        {
+            <tr>
+                <td>@lobby.GameName</td>
+                <td>@lobby.Description</td>
+                <td>@lobby.MaxPlayers</td>
+                <td>@lobby.NCurrentPlayers</td>
+                <td>
+                    <ul>
+                        @foreach (var player in lobby.Players)
+                        {
+                            <li>@player.UserName</li>
+                        }
+                    </ul>
+                </td>
+                <td>
+                    <button class="btn btn-primary" @onclick="() => JoinLobby(lobby.Id)" disabled="@(lobby.NCurrentPlayers >= lobby.MaxPlayers)">Join</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+}
+
+<button class="btn btn-primary" @onclick="RefreshLobbies">Refresh</button>
+
+@code {
+    private List<LobbyModel>? lobbies = new();
+
+    private void JoinLobby(Guid lobbyId)
+    {
+        var lobby = lobbies!.Find(l => l.Id == lobbyId);
+
+        if (lobby?.NCurrentPlayers < lobby?.MaxPlayers)
+        {
+            NavigationManager.NavigateTo($"/game/{lobbyId}");
+        }
+    }
+    public async Task RefreshLobbies()
+    {
+        lobbies = await Http.GetFromJsonAsync<List<LobbyModel>>(Configuration["ApiUrl"] + "/Lobbies");
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshLobbies();
+    }
+}

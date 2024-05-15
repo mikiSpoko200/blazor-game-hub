@@ -1,0 +1,76 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.Authorization;
+@using GameHubShared.Models;
+@inject AppState AppState;
+@inject NavigationManager NavigationManager;
+@inject HttpClient Http;
+@inject IConfiguration Configuration;
+
+<PageTitle>Index</PageTitle >
+
+@if (AppState.JWT is null) {
+<ToLogin />
+} else {
+<div class="container">
+
+    <h1 class="text-center mt-5">Welcome, @(AppState.User!.UserName)</h1>
+    <p class="lead text-center">Welcome to Game Hub. Let's get started!</p>
+
+    <div class="row">
+        <div class="col-md-6">
+            <h2>Create New Lobby</h2>
+            <LobbyCreator OnLobbyCreate="CreateLobby"/>
+
+            @if (CreateLobbyResult == LobbyCreationResult.Success)
+            {
+                <div class="alert alert-success" role="alert">
+                    Lobby created successfully!
+                </div>
+            }
+            else if (CreateLobbyResult == LobbyCreationResult.Failure)
+            {
+                <div class="alert alert-danger" role="alert">
+                    Lobby creation failed!
+                </div>
+            }
+        </div>
+
+        <div class="col-md-6">
+            <h2>Join an Existing Lobby</h2>
+            <Lobbies @ref="lobbyList"/>
+        </div>
+    </div>
+</div>
+}
+
+@code {
+    private LobbyCreationResult CreateLobbyResult = LobbyCreationResult.None;
+    private Lobbies lobbyList;
+
+    private async Task CreateLobby(LobbyCreator.LobbyModel model)
+    {
+        WaitingLobbyModel lobby = new(
+            Guid.NewGuid(), 
+            2, 
+            model.GameName, 
+            model.Description
+        );
+
+        var response = await Http.PostAsJsonAsync(Configuration["ApiUrl"] + "/Lobbies", lobby);
+
+        if (response.IsSuccessStatusCode) {
+            CreateLobbyResult = LobbyCreationResult.Success;
+            await lobbyList.RefreshLobbies();
+        } else {
+            CreateLobbyResult = LobbyCreationResult.Failure;
+        }
+    }
+
+    public enum LobbyCreationResult
+    {
+        None,
+        Success,
+        Failure
+    }
+}
+

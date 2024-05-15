@@ -1,0 +1,103 @@
+﻿@using System.ComponentModel.DataAnnotations;
+
+<div class="container mt-5">
+    <button class="btn btn-primary mb-3" @onclick="ToggleVisibility">Toggle Lobby Creation</button>
+
+    @if (showLobbyCreation)
+    {
+        <div class="card">
+            <div class="card-header">
+                <h3>Create a New Lobby</h3>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@lobbyModel" OnValidSubmit="CreateLobby">
+                    <div class="form-group">
+                        <label for="gameName">Game Name:</label>
+                        <InputSelect id="gameName" class="form-control" @bind-Value="lobbyModel.GameName">
+                            @foreach (var game in new List<string>() { "Tic Tac Toe" })
+                            {
+                                <option value="@game">@game</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="description">Description (max length 100):</label>
+                        <InputText id="description" class="form-control" @bind-Value="lobbyModel.Description" />
+                        <ValidationMessage For="@(() => lobbyModel.Description)" />
+                    </div>
+
+                    <div class="form-group">
+                        <button type="submit" class="btn btn-primary btn-block">Create Lobby</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@* <button class="btn btn-primary" @onclick="ToggleVisibility">Toggle Lobby Creation</button>
+
+@if (showLobbyCreation)
+{
+    <EditForm Model="@lobbyModel" OnValidSubmit="CreateLobby">
+        <h3>Create a New Lobby</h3>
+
+        <div class="form-group">
+            <label for="gameName">Game Name:</label>
+            <InputSelect @bind-Value="lobbyModel.GameName">
+                @foreach (var game in new List<string>() { "Tic Tac Toe" })
+                {
+                    <option value="@game">@game</option>
+                }
+            </InputSelect>
+        </div>
+
+        <div class="form-group">
+            <label for="description">Description (max length 100):</label>
+            <InputText id="description" @bind-Value="lobbyModel.Description" />
+            <ValidationMessage For="@(() => lobbyModel.Description)" />
+        </div>
+
+        <div class="form-group">
+            <button type="submit" class="btn btn-primary">Create Lobby</button>
+        </div>
+    </EditForm>
+} *@
+
+@code {
+    private LobbyModel lobbyModel = new LobbyModel();
+    private bool showLobbyCreation = false;
+
+    [Parameter]
+    public EventCallback<LobbyModel> OnLobbyCreate { get; set; }
+
+    private void CreateLobby()
+    {
+        // Trigger the event on successful form submission
+        OnLobbyCreate.InvokeAsync(lobbyModel);
+    }
+
+    private void ToggleVisibility()
+    {
+        showLobbyCreation = !showLobbyCreation;
+    }
+
+    public class LobbyModel
+    {
+        // note: this does not bind for some unholy reason.
+        [Required(ErrorMessage = "Please select a game.")]
+        public string GameName
+        {
+            get;
+            set;
+        } = "TicTacToe";
+
+        [Required(ErrorMessage = "Description is required.")]
+        [StringLength(100, ErrorMessage = "Description cannot exceed 100 characters.")]
+        public string Description {
+            get;
+            set;
+        }
+    }
+}

@@ -1,0 +1,184 @@
+﻿@page "/login"
+@using System.Text.Json;
+@using System.Text;
+@using GameHubShared.Models;
+@inject IConfiguration Configuration;
+@inject NavigationManager NavigationManager;
+@inject HttpClient Http;
+@inject AppState appState;
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <h2 class="text-center">Anonymous Login</h2>
+            <EditForm Model="anonymousUserModel" OnValidSubmit="HandleAnonymousValidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-group">
+                    <label for="anon">Username:</label>
+                    <InputText id="anon" class="form-control" @bind-Value="anonymousUserModel.UserName" />
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Enter Anonymously</button>
+
+                @if (isAnonymous)
+                {
+                    <div class="alert alert-success mt-3">
+                        Entered anonymously.
+                        <button class="btn btn-success btn-block" @onclick="GoToHome">Browse lobbies</button>
+                    </div>
+                }
+            </EditForm>
+        </div>
+
+        <div class="col-md-6">
+            <h2 class="text-center">User Login</h2>
+            <EditForm Model="model" OnValidSubmit="HandleLoginValidSubmit">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-group">
+                    <label for="username">Username:</label>
+                    <InputText id="username" class="form-control" @bind-Value="model.UserName" />
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <InputText id="password" type="password" class="form-control" @bind-Value="model.Password" />
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-block">Log in</button>
+
+                @if (loginResult == LoginResult.Success)
+                {
+                    <div class="alert alert-success mt-3">
+                        Login successful.
+                        <button class="btn btn-success btn-block" @onclick="GoToHome">Browse lobbies</button>
+                    </div>
+                }
+                else if (loginResult == LoginResult.Failure)
+                {
+                    <div class="alert alert-danger mt-3">
+                        Login failed.
+                    </div>
+                }
+            </EditForm>
+        </div>
+    </div>
+</div>
+
+@* <EditForm Model="anonymousUserModel" OnValidSubmit="HandleAnonymousValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="anon">Username:</label>
+        <InputText id="anon" class="form-control" @bind-Value="anonymousUserModel.UserName" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Enter Anonymously</button>
+
+    @if (isAnonymous)
+    {
+        <div class="alert alert-success mt-3">
+            Entered anonymously.
+            <button @onclick="GoToHome">Browse lobbies</button>
+        </div>
+    }
+</EditForm>
+
+<EditForm Model="model" OnValidSubmit="HandleLoginValidSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="username">Username:</label>
+        <InputText id="username" class="form-control" @bind-Value="model.UserName" />
+    </div>
+
+    <div class="form-group">
+        <label for="password">Password:</label>
+        <InputText id="password" type="password" class="form-control" @bind-Value="model.Password" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Log in</button>
+
+    @if (loginResult == LoginResult.Success)
+    {
+        <div class="alert alert-success mt-3">
+            Login successful.
+            <button @onclick="GoToHome">Browse lobbies</button>
+        </div>
+    }
+    else if (loginResult == LoginResult.Failure)
+    {
+        <div class="alert alert-danger mt-3">
+            Login failed.
+        </div>
+    }
+</EditForm> *@
+
+@code {
+    private LoginModel model = new();
+    private AnonymousUserModel anonymousUserModel = new AnonymousUserModel();
+
+    LoginResult loginResult = LoginResult.None;
+    bool isAnonymous = false;
+
+    private void GoToHome()
+    {
+        NavigationManager.NavigateTo("/");
+    }
+
+    private async Task HandleLoginValidSubmit()
+    {
+        var response = await Http.PostAsJsonAsync(Configuration["ApiUrl"] + "/Login", model);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var responseStream = await response.Content.ReadAsStreamAsync();
+            var responseObject = JsonSerializer.Deserialize<Dictionary<string, string>>(responseStream);
+
+            if (responseObject!.ContainsKey("token"))
+            {
+                appState.JWT = responseObject["token"];
+                Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appState.JWT);
+                appState.User = new UserModel(model.UserName, "LoggedInUser");
+                loginResult = LoginResult.Success;
+            }
+        } else {
+            loginResult = LoginResult.Failure;
+        }
+    }
+
+    private async Task HandleAnonymousValidSubmit()
+    {
+        var response = await Http.PostAsJsonAsync(Configuration["ApiUrl"] + "/Anonymous", anonymousUserModel);
+
+        if (response.IsSuccessStatusCode)
+        {
+            var responseStream = await response.Content.ReadAsStreamAsync();
+            var responseObject = JsonSerializer.Deserialize<Dictionary<string, string>>(responseStream);
+
+            if (responseObject!.ContainsKey("token"))
+            {
+                appState.JWT = responseObject["token"];
+                Http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", appState.JWT);
+                appState.User = new UserModel(anonymousUserModel.UserName, "AnonymousUser");
+                isAnonymous = true;
+            }
+        }
+    }
+
+    class AnonymousUserModel
+    {
+        public string UserName { get; set; }
+    }
+    public enum LoginResult
+    {
+        None,
+        Success,
+        Failure
+    }
+}
